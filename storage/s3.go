@@ -157,10 +157,10 @@ func (s *S3) Stat(ctx context.Context, url *url.URL) (*Object, error) {
 // it sends these errors to object channel.
 func (s *S3) List(ctx context.Context, url *url.URL, _ bool) <-chan *Object {
 	if url.VersionID != "" || url.AllVersions {
-		return s.listObjectVersions(ctx, url)
+		return s.listObjectVersions(ctx, url) //
 	}
 	if s.useListObjectsV1 {
-		return s.listObjects(ctx, url)
+		return s.listObjects(ctx, url) //
 	}
 
 	return s.listObjectsV2(ctx, url)
@@ -378,7 +378,7 @@ func (s *S3) listObjectsV2(ctx context.Context, url *url.URL) <-chan *Object {
 			return
 		}
 
-		if !objectFound {
+		if !objectFound && !url.IsBucket() {
 			objCh <- &Object{Err: ErrNoObjectFound}
 		}
 	}()
