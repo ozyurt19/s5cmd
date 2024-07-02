@@ -28,6 +28,9 @@ Examples:
 
 	2. Print specific version of a remote object's content to stdout
 		 > s5cmd {{.HelpName}} --version-id VERSION_ID s3://bucket/prefix/object
+
+	3. Concatenate multiple objects matching a prefix or wildcard and print to stdout
+		 > s5cmd {{.HelpName}} s3://bucket/prefix/*
 `
 
 func NewCatCommand() *cli.Command {
@@ -111,16 +114,21 @@ func (c Cat) Run(ctx context.Context) error {
 		printError(c.fullCommand, c.op, err)
 		return err
 	}
-	_, err = client.Stat(ctx, c.src)
-	if err != nil {
-		printError(c.fullCommand, c.op, err)
-		return err
-	}
-	buf := orderedwriter.New(os.Stdout)
-	_, err = client.Get(ctx, c.src, buf, c.concurrency, c.partSize)
-	if err != nil {
-		printError(c.fullCommand, c.op, err)
-		return err
+
+	objectChan := client.List(ctx, c.src, true) // why a bool arg not used?
+
+	for obj := range objectChan {
+		if obj.Err != nil {
+			printError(c.fullCommand, c.op, obj.Err)
+			return obj.Err
+		}
+		buf := orderedwriter.New(os.Stdout)
+		_, err = client.Get(ctx, obj.URL, buf, c.concurrency, c.partSize)
+		if err != nil {
+			printError(c.fullCommand, c.op, err)
+			return err
+		}
+		fmt.Fprintln(os.Stdout)
 	}
 	return nil
 }
@@ -138,14 +146,6 @@ func validateCatCommand(c *cli.Context) error {
 
 	if !src.IsRemote() {
 		return fmt.Errorf("source must be a remote object")
-	}
-
-	if src.IsBucket() || src.IsPrefix() {
-		return fmt.Errorf("remote source must be an object")
-	}
-
-	if src.IsWildcard() {
-		return fmt.Errorf("remote source %q can not contain glob characters", src)
 	}
 
 	if err := checkVersioningWithGoogleEndpoint(c); err != nil {
