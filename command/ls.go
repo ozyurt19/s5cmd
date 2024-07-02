@@ -200,6 +200,9 @@ func (l List) Run(ctx context.Context) error {
 		}
 
 		if err := object.Err; err != nil {
+			if err.Error() == "no object found" {
+				return nil
+			}
 			merror = multierror.Append(merror, err)
 			printError(l.fullCommand, l.op, err)
 			continue
