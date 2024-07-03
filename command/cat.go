@@ -139,12 +139,12 @@ func (c Cat) Run(ctx context.Context) error {
 // processObjects processes objects from the provided channel.
 func (c Cat) processObjects(ctx context.Context, client *storage.S3, objectChan <-chan *storage.Object) error {
 	for obj := range objectChan {
-		if obj.Type.IsDir() {
-			continue
-		}
 		if obj.Err != nil {
 			printError(c.fullCommand, c.op, obj.Err)
 			return obj.Err
+		}
+		if obj.Type.IsDir() {
+			continue
 		}
 		buf := orderedwriter.New(os.Stdout)
 
