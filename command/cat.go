@@ -153,7 +153,6 @@ func (c Cat) processObjects(ctx context.Context, client *storage.S3, objectChan 
 			printError(c.fullCommand, c.op, err)
 			return err
 		}
-		fmt.Fprintln(os.Stdout)
 	}
 	return nil
 }
