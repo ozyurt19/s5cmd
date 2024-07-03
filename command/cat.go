@@ -115,15 +115,37 @@ func (c Cat) Run(ctx context.Context) error {
 		return err
 	}
 
-	objectChan := client.List(ctx, c.src, true) // why a bool arg not used?
+	// Initialize an empty channel to handle single or multiple objects
+	var objectChan <-chan *storage.Object
 
+	if c.src.IsBucket() || c.src.IsPrefix() {
+		objectChan = client.List(ctx, c.src, false)
+	} else {
+		_, err = client.Stat(ctx, c.src)
+		if err != nil {
+			printError(c.fullCommand, c.op, err)
+			return err
+		}
+		// Create a channel and push the single object to it
+		singleObjChan := make(chan *storage.Object, 1)
+		singleObjChan <- &storage.Object{URL: c.src}
+		close(singleObjChan)
+		objectChan = singleObjChan
+	}
+
+	return c.processObjects(ctx, client, objectChan)
+}
+
+// processObjects processes objects from the provided channel.
+func (c Cat) processObjects(ctx context.Context, client *storage.S3, objectChan <-chan *storage.Object) error {
 	for obj := range objectChan {
 		if obj.Err != nil {
 			printError(c.fullCommand, c.op, obj.Err)
 			return obj.Err
 		}
 		buf := orderedwriter.New(os.Stdout)
-		_, err = client.Get(ctx, obj.URL, buf, c.concurrency, c.partSize)
+
+		_, err := client.Get(ctx, obj.URL, buf, c.concurrency, c.partSize)
 		if err != nil {
 			printError(c.fullCommand, c.op, err)
 			return err
