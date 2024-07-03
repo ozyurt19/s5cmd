@@ -118,7 +118,7 @@ func (c Cat) Run(ctx context.Context) error {
 	// Initialize an empty channel to handle single or multiple objects
 	var objectChan <-chan *storage.Object
 
-	if c.src.IsBucket() || c.src.IsPrefix() {
+	if c.src.IsWildcard() || c.src.IsPrefix() || c.src.IsBucket() {
 		objectChan = client.List(ctx, c.src, false)
 	} else {
 		_, err = client.Stat(ctx, c.src)
@@ -139,6 +139,9 @@ func (c Cat) Run(ctx context.Context) error {
 // processObjects processes objects from the provided channel.
 func (c Cat) processObjects(ctx context.Context, client *storage.S3, objectChan <-chan *storage.Object) error {
 	for obj := range objectChan {
+		if obj.Type.IsDir() {
+			continue
+		}
 		if obj.Err != nil {
 			printError(c.fullCommand, c.op, obj.Err)
 			return obj.Err
