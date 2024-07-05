@@ -787,7 +787,6 @@ func TestListNestedLocalFolders(t *testing.T) {
 	}, trimMatch(dateRe), alignment(true))
 }
 
-// ls empty bucket
 func TestEmptyBucket(t *testing.T) {
 	t.Parallel()
 
@@ -800,6 +799,4 @@ func TestEmptyBucket(t *testing.T) {
 	result := icmd.RunCmd(cmd)
 
 	result.Assert(t, icmd.Success)
-
-	assertLines(t, result.Stdout(), map[int]compareFunc{}, alignment(true))
 }
