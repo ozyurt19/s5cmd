@@ -176,5 +176,11 @@ func validateCatCommand(c *cli.Context) error {
 		return err
 	}
 
+	if src.IsWildcard() || src.IsPrefix() || src.IsBucket() {
+		if c.String("version-id") != "" {
+			return fmt.Errorf("wildcard/prefix operations are disabled with --version-id flag")
+		}
+	}
+
 	return nil
 }
