@@ -22,7 +22,7 @@ func TestCatS3Object(t *testing.T) {
 	const (
 		filename = "file.txt"
 	)
-	contents, expected := getSequentialFileContent(128)
+	contents, expected := getSequentialFileContent(4 * mb)
 
 	testcases := []struct {
 		name      string
@@ -257,7 +257,7 @@ func getSequentialFileContent(size int64) (string, map[int]compareFunc) {
 	return sb.String(), expectedLines
 }
 
-func TestCatByVersionID(t *testing.T) { //todo: add wildcard and prefix fail case test
+func TestCatByVersionID(t *testing.T) {
 	skipTestIfGCS(t, "versioning is not supported in GCS")
 
 	t.Parallel()
@@ -317,6 +317,33 @@ func TestCatByVersionID(t *testing.T) { //todo: add wildcard and prefix fail cas
 			t.Errorf("(-want +got):\n%v", diff)
 		}
 	}
+
+	version := "1"
+
+	// wildcard and prefix fail cases
+	cmd = s5cmd("cat", "--version-id", version, "s3://"+bucket+"/")
+	result = icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Expected{ExitCode: 1})
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: equals(`ERROR "cat --version-id=%v s3://%v/": wildcard/prefix operations are disabled with --version-id flag`, version, bucket),
+	}, strictLineCheck(false))
+
+	cmd = s5cmd("cat", "--version-id", version, "s3://"+bucket+"/folder/")
+	result = icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Expected{ExitCode: 1})
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: equals(`ERROR "cat --version-id=%v s3://%v/folder/": wildcard/prefix operations are disabled with --version-id flag`, version, bucket),
+	}, strictLineCheck(false))
+
+	cmd = s5cmd("cat", "--version-id", version, "s3://"+bucket+"/*")
+	result = icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Expected{ExitCode: 1})
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: equals(`ERROR "cat --version-id=%v s3://%v/*": wildcard/prefix operations are disabled with --version-id flag`, version, bucket),
+	}, strictLineCheck(false))
 }
 
 func TestCatPrefix(t *testing.T) {
@@ -326,31 +353,26 @@ func TestCatPrefix(t *testing.T) {
 	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 
-	filesRoot := []string{
-		"file1.txt",
-		"file2.txt",
+	testCases := []struct {
+		files    []string
+		prefix   string
+		expected string
+	}{
+		{files: []string{"file1.txt", "file2.txt"}, prefix: "", expected: "content0content1"},
+		{files: []string{"dir/file3.txt", "dir/file4.txt"}, prefix: "", expected: "content0content1"},
+		{files: nil, prefix: "dir/", expected: "content2content3"},
+		{files: []string{"dir/nesteddir/file5.txt"}, prefix: "dir/", expected: "content2content3"},
+		{files: nil, prefix: "dir/nesteddir/", expected: "content4"},
 	}
 
-	filesDir := []string{
-		"dir/file3.txt",
-		"dir/file4.txt",
+	i := 0
+	for _, tc := range testCases {
+		if tc.files != nil {
+			_ = uploadAndConcatenate(t, s3client, bucket, tc.files, i)
+			i += len(tc.files)
+		}
+		verifyCatCommand(t, s5cmd, bucket, tc.expected, tc.prefix)
 	}
-	// todo: rootda file file dir varken prefix casesini ekle
-	concatenatedContentRoot := uploadAndConcatenate(t, s3client, bucket, filesRoot)
-	concatenatedContentDir := uploadAndConcatenate(t, s3client, bucket, filesDir)
-
-	verifyCatCommand(t, s5cmd, bucket, concatenatedContentRoot, "")
-	verifyCatCommand(t, s5cmd, bucket, concatenatedContentDir, "dir/")
-}
-
-func uploadAndConcatenate(t *testing.T, s3client *s3.S3, bucket string, files []string) string {
-	var concatenatedContent strings.Builder
-	for idx, file := range files {
-		content := fmt.Sprintf("content%d", idx)
-		putFile(t, s3client, bucket, file, content)
-		concatenatedContent.WriteString(content)
-	}
-	return concatenatedContent.String()
 }
 
 func TestCatWildcard(t *testing.T) {
@@ -360,62 +382,90 @@ func TestCatWildcard(t *testing.T) {
 	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 
-	files := []string{
-		"foo1.txt",
-		"foo2.txt",
-		"bar1.txt",
-		"foolder/file3.txt",
-		"foolder/file4.txt",
-		"dir/log-file-2024-01.txt",
-		"dir/log-file-2024-02.txt",
-		"dir/log-file-2023-01.txt",
-		"dir/log-file-2022-01.txt",
+	files := []struct {
+		key     string
+		content string
+	}{
+		{"foo1.txt", "content0"},
+		{"foo2.txt", "content1"},
+		{"bar1.txt", "content2"},
+		{"foolder/foo3.txt", "content3"},
+		{"log-file-2024-01.txt", "content4"},
+		{"log-file-2024-02.txt", "content5"},
+		{"log-file-2023-01.txt", "content6"},
+		{"log-file-2022-01.txt", "content7"},
 	}
 
-	contentMap := uploadFiles(t, s3client, bucket, files)
+	for _, file := range files {
+		putFile(t, s3client, bucket, file.key, file.content)
+	}
 
-	verifyWildcardCommands(t, s5cmd, bucket, contentMap)
+	testCases := []struct {
+		prefix   string
+		expected string
+	}{
+		{"foo*", "content0content1content3"},
+		{"log-file-2024-*", "content4content5"},
+		{"log-file-*", "content7content6content4content5"},
+	}
+
+	for _, tc := range testCases {
+		verifyCatCommand(t, s5cmd, bucket, tc.expected, tc.prefix)
+	}
+}
+
+func TestPrefixWildcardFail(t *testing.T) {
+	t.Parallel()
+
+	s3client, s5cmd := setup(t)
+	bucket := s3BucketFromTestName(t)
+	createBucket(t, s3client, bucket)
+
+	testCases := []struct {
+		prefix string
+	}{
+		{"foo*"},
+		{"foolder/"},
+	}
+
+	for _, tc := range testCases {
+		cmd := s5cmd("cat", fmt.Sprintf("s3://%v/%v", bucket, tc.prefix))
+		result := icmd.RunCmd(cmd)
+
+		result.Assert(t, icmd.Expected{ExitCode: 1})
+		assertLines(t, result.Stderr(), map[int]compareFunc{
+			0: equals(`ERROR "cat s3://%v/%v": no object found`, bucket, tc.prefix),
+		}, strictLineCheck(false))
+	}
+
+	for _, tc := range testCases {
+		cmd := s5cmd("--json", "cat", fmt.Sprintf("s3://%v/%v", bucket, tc.prefix))
+		result := icmd.RunCmd(cmd)
+
+		result.Assert(t, icmd.Expected{ExitCode: 1})
+		assertLines(t, result.Stderr(), map[int]compareFunc{
+			0: equals(`{"operation":"cat","command":"cat s3://%v/%v","error":"no object found"}`, bucket, tc.prefix),
+		}, strictLineCheck(false))
+	}
+
+}
+
+func uploadAndConcatenate(t *testing.T, s3client *s3.S3, bucket string, files []string, offset int) string {
+	var concatenatedContent strings.Builder
+	for idx, file := range files {
+		content := fmt.Sprintf("content%d", idx+offset)
+		putFile(t, s3client, bucket, file, content)
+		concatenatedContent.WriteString(content)
+	}
+	return concatenatedContent.String()
 }
 
 func verifyCatCommand(t *testing.T, s5cmd func(...string) icmd.Cmd, bucket, expectedContent, prefix string) {
 	cmd := s5cmd("cat", fmt.Sprintf("s3://%v/%v", bucket, prefix))
 	result := icmd.RunCmd(cmd)
+
 	result.Assert(t, icmd.Success)
-	t.Logf("stdout: %v", result.Stdout())
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals(expectedContent),
 	}, alignment(true))
-}
-
-func uploadFiles(t *testing.T, s3client *s3.S3, bucket string, files []string) map[string]string {
-	contentMap := make(map[string]string)
-	for idx, file := range files {
-		content := fmt.Sprintf("content%d", idx)
-		putFile(t, s3client, bucket, file, content)
-		contentMap[file] = content
-	}
-	return contentMap
-}
-
-func verifyWildcardCommands(t *testing.T, s5cmd func(...string) icmd.Cmd, bucket string, contentMap map[string]string) {
-	wildcardPatterns := map[string]string{
-		// "foo*.txt":            concatenateContents(contentMap, "foo1.txt", "foo2.txt", "foolder/file3.txt", "foolder/file4.txt"),
-		// "foolder/file*.txt":   concatenateContents(contentMap, "foolder/file3.txt", "foolder/file4.txt"),
-		"dir/log-file-2024-*": concatenateContents(t, contentMap, "dir/log-file-2024-01.txt", "dir/log-file-2024-02.txt", "dir/log-file-2024-03.txt"),
-		// "dir/log-file-2023-*": concatenateContents(contentMap, "dir/log-file-2023-01.txt"),
-		// "dir/log-file-2022-*": concatenateContents(contentMap, "dir/log-file-2022-01.txt"),
-	}
-
-	for pattern, expectedContent := range wildcardPatterns {
-		verifyCatCommand(t, s5cmd, bucket, expectedContent, pattern)
-	}
-}
-
-func concatenateContents(t *testing.T, contentMap map[string]string, files ...string) string {
-	var concatenatedContent strings.Builder
-	for _, file := range files {
-		concatenatedContent.WriteString(contentMap[file])
-	}
-	t.Logf("concatenated content: %v", concatenatedContent.String())
-	return concatenatedContent.String()
 }
