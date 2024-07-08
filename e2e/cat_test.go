@@ -5,7 +5,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/google/go-cmp/cmp"
 	"gotest.tools/v3/assert"
 	"gotest.tools/v3/icmd"
@@ -365,11 +364,16 @@ func TestCatPrefix(t *testing.T) {
 		{files: nil, prefix: "dir/nesteddir/", expected: "content4"},
 	}
 
-	i := 0
+	offset := 0
 	for _, tc := range testCases {
 		if tc.files != nil {
-			_ = uploadAndConcatenate(t, s3client, bucket, tc.files, i)
-			i += len(tc.files)
+			var concatenatedContent strings.Builder
+			for idx, file := range tc.files {
+				content := fmt.Sprintf("content%d", idx+offset)
+				putFile(t, s3client, bucket, file, content)
+				concatenatedContent.WriteString(content)
+			}
+			offset += len(tc.files)
 		}
 		verifyCatCommand(t, s5cmd, bucket, tc.expected, tc.prefix)
 	}
@@ -448,16 +452,6 @@ func TestPrefixWildcardFail(t *testing.T) {
 		}, strictLineCheck(false))
 	}
 
-}
-
-func uploadAndConcatenate(t *testing.T, s3client *s3.S3, bucket string, files []string, offset int) string {
-	var concatenatedContent strings.Builder
-	for idx, file := range files {
-		content := fmt.Sprintf("content%d", idx+offset)
-		putFile(t, s3client, bucket, file, content)
-		concatenatedContent.WriteString(content)
-	}
-	return concatenatedContent.String()
 }
 
 func verifyCatCommand(t *testing.T, s5cmd func(...string) icmd.Cmd, bucket, expectedContent, prefix string) {
