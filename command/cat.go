@@ -126,7 +126,6 @@ func (c Cat) Run(ctx context.Context) error {
 			printError(c.fullCommand, c.op, err)
 			return err
 		}
-		// Create a channel and push the single object to it
 		singleObjChan := make(chan *storage.Object, 1)
 		singleObjChan <- &storage.Object{URL: c.src}
 		close(singleObjChan)
@@ -136,7 +135,6 @@ func (c Cat) Run(ctx context.Context) error {
 	return c.processObjects(ctx, client, objectChan)
 }
 
-// processObjects processes objects from the provided channel.
 func (c Cat) processObjects(ctx context.Context, client *storage.S3, objectChan <-chan *storage.Object) error {
 	for obj := range objectChan {
 		if obj.Err != nil {
