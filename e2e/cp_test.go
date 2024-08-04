@@ -58,28 +58,28 @@ func TestCopySingleS3ObjectToLocal(t *testing.T) {
 			name:        "cp s3://bucket/object .",
 			src:         "file1.txt",
 			dst:         ".",
-			expected:    fs.WithFile("file1.txt", fileContent, fs.WithMode(0644)),
+			expected:    fs.WithFile("file1.txt", fileContent, fs.WithMode(0o644)),
 			expectedDst: "file1.txt",
 		},
 		{
 			name:        "cp s3://bucket/object file",
 			src:         "file1.txt",
 			dst:         "file1.txt",
-			expected:    fs.WithFile("file1.txt", fileContent, fs.WithMode(0644)),
+			expected:    fs.WithFile("file1.txt", fileContent, fs.WithMode(0o644)),
 			expectedDst: "file1.txt",
 		},
 		{
 			name:        "cp s3://bucket/object dir/",
 			src:         "file1.txt",
 			dst:         "dir/",
-			expected:    fs.WithDir("dir", fs.WithFile("file1.txt", fileContent, fs.WithMode(0644))),
+			expected:    fs.WithDir("dir", fs.WithFile("file1.txt", fileContent, fs.WithMode(0o644))),
 			expectedDst: "dir/file1.txt",
 		},
 		{
 			name:        "cp s3://bucket/object dir/file",
 			src:         "file1.txt",
 			dst:         "dir/file1.txt",
-			expected:    fs.WithDir("dir", fs.WithFile("file1.txt", fileContent, fs.WithMode(0644))),
+			expected:    fs.WithDir("dir", fs.WithFile("file1.txt", fileContent, fs.WithMode(0o644))),
 			expectedDst: "dir/file1.txt",
 		},
 		// Cases with adjacent slashes. Expected behavior is to remove all duplicate slashes in local files.
@@ -87,28 +87,28 @@ func TestCopySingleS3ObjectToLocal(t *testing.T) {
 			name:        "cp s3://bucket//a/b///c////object .",
 			src:         "/a/b///c////file1.txt",
 			dst:         ".",
-			expected:    fs.WithFile("file1.txt", fileContent, fs.WithMode(0644)),
+			expected:    fs.WithFile("file1.txt", fileContent, fs.WithMode(0o644)),
 			expectedDst: "file1.txt",
 		},
 		{
 			name:        "cp s3://bucket//a/b///c////object file",
 			src:         "/a/b///c////file1.txt",
 			dst:         "file1.txt",
-			expected:    fs.WithFile("file1.txt", fileContent, fs.WithMode(0644)),
+			expected:    fs.WithFile("file1.txt", fileContent, fs.WithMode(0o644)),
 			expectedDst: "file1.txt",
 		},
 		{
 			name:        "cp s3://bucket//a/b///c////object dir/",
 			src:         "/a/b///c////file1.txt",
 			dst:         "dir/",
-			expected:    fs.WithDir("dir", fs.WithFile("file1.txt", fileContent, fs.WithMode(0644))),
+			expected:    fs.WithDir("dir", fs.WithFile("file1.txt", fileContent, fs.WithMode(0o644))),
 			expectedDst: "dir/file1.txt",
 		},
 		{
 			name:        "cp s3://bucket//a/b///c////object dir/file",
 			src:         "/a/b///c////file1.txt",
 			dst:         "dir/file1.txt",
-			expected:    fs.WithDir("dir", fs.WithFile("file1.txt", fileContent, fs.WithMode(0644))),
+			expected:    fs.WithDir("dir", fs.WithFile("file1.txt", fileContent, fs.WithMode(0o644))),
 			expectedDst: "dir/file1.txt",
 		},
 	}
@@ -184,7 +184,7 @@ func TestCopySingleS3ObjectToLocalJSON(t *testing.T) {
 	}, jsonCheck(true))
 
 	// assert local filesystem
-	expected := fs.Expected(t, fs.WithFile(filename, content, fs.WithMode(0644)))
+	expected := fs.Expected(t, fs.WithFile(filename, content, fs.WithMode(0o644)))
 	assert.Assert(t, fs.Equal(cmd.Dir, expected))
 
 	// assert s3 object
@@ -294,7 +294,7 @@ func TestCopyMultipleFlatS3ObjectsToLocal(t *testing.T) {
 
 	// assert local filesystem
 	// expect flattened directory structure
-	var expectedFiles = []fs.PathOp{
+	expectedFiles := []fs.PathOp{
 		fs.WithFile("testfile1.txt", "this is a test file 1"),
 		fs.WithFile("readme.md", "this is a readme file"),
 		fs.WithFile("filename-with-hypen.gz", "file has hypen in its name"),
@@ -341,8 +341,8 @@ func TestCopyMultipleFlatS3ObjectsToLocalWithPartialMatching(t *testing.T) {
 
 	// assert local filesystem
 	expectedFiles := []fs.PathOp{
-		fs.WithFile("testfile1.txt", "this is a test file 1", fs.WithMode(0644)),
-		fs.WithFile("another_test_file.txt", "yet another txt file", fs.WithMode(0644)),
+		fs.WithFile("testfile1.txt", "this is a test file 1", fs.WithMode(0o644)),
+		fs.WithFile("another_test_file.txt", "yet another txt file", fs.WithMode(0o644)),
 	}
 	expected := fs.Expected(t, expectedFiles...)
 	assert.Assert(t, fs.Equal(cmd.Dir, expected))
@@ -382,7 +382,7 @@ func TestCopyMultipleFlatNestedS3ObjectsToLocalWithPartialMatching(t *testing.T)
 	}, sortInput(true))
 
 	// assert local filesystem
-	expected := fs.Expected(t, fs.WithFile("testfile2.txt", "test file 2", fs.WithMode(0644)))
+	expected := fs.Expected(t, fs.WithFile("testfile2.txt", "test file 2", fs.WithMode(0o644)))
 	assert.Assert(t, fs.Equal(cmd.Dir, expected))
 
 	// assert s3 objects
@@ -469,7 +469,7 @@ func TestCopyMultipleFlatS3ObjectsToLocalJSON(t *testing.T) {
 
 	// assert local filesystem
 	// expect flattened directory structure
-	var expectedFiles = []fs.PathOp{
+	expectedFiles := []fs.PathOp{
 		fs.WithFile("testfile1.txt", "this is a test file 1"),
 		fs.WithFile("readme.md", "this is a readme file"),
 		fs.WithFile("filename-with-hypen.gz", "file has hypen in its name"),
@@ -519,7 +519,7 @@ func TestCopyMultipleNestedS3ObjectsToLocal(t *testing.T) {
 	}, sortInput(true))
 
 	// assert local filesystem
-	var expectedFiles = []fs.PathOp{
+	expectedFiles := []fs.PathOp{
 		fs.WithFile("testfile1.txt", "this is a test file 1"),
 		fs.WithDir(
 			"a",
@@ -645,7 +645,7 @@ func TestCopyMultipleS3ObjectsToGivenLocalDirectory(t *testing.T) {
 	}, sortInput(true))
 
 	// assert local filesystem
-	var expectedFiles = []fs.PathOp{
+	expectedFiles := []fs.PathOp{
 		fs.WithDir(
 			"a",
 			fs.WithFile("another_test_file.txt", "yet another txt file. yatf."),
@@ -787,7 +787,6 @@ func TestCopySingleFileToS3WithAllMetadataFlags(t *testing.T) {
 		ensureEncryptionMethod(EncryptionMethod),
 		ensureEncryptionKeyID(EncryptionKeyID),
 	))
-
 }
 
 // cp dir/file s3://bucket/ --metadata key1=val1 --metadata key2=val2 ...
@@ -923,6 +922,40 @@ func TestCopyS3ToS3WithArbitraryMetadataWithReplaceDirective(t *testing.T) {
 	assert.Assert(t, ensureS3Object(s3client, bucket, fmt.Sprintf("%s_cp", filename), content, ensureArbitraryMetadata(dstmetadata)))
 }
 
+// cp s3://bucket2/obj2 s3://bucket1/obj1 --metadata-directive COPY --metadata key1=val1 --metadata key2=val2 ...
+func TestCopyS3ToS3WithArbitraryMetadataWithCopyDirective(t *testing.T) {
+	t.Parallel()
+
+	s3client, s5cmd := setup(t)
+
+	bucket := s3BucketFromTestName(t)
+	createBucket(t, s3client, bucket)
+
+	const (
+		filename = "index"
+		content  = "things"
+		foo      = "Key1=foo"
+		bar      = "Key2=bar"
+	)
+
+	// build assert map
+	srcmetadata := map[string]*string{
+		"Key1": aws.String("value1"),
+		"Key2": aws.String("value2"),
+	}
+
+	srcpath := fmt.Sprintf("s3://%v/%v", bucket, filename)
+	dstpath := fmt.Sprintf("s3://%v/%v_cp", bucket, filename)
+
+	putFile(t, s3client, bucket, filename, content, putArbitraryMetadata(srcmetadata))
+	cmd := s5cmd("cp", "--metadata-directive", "COPY", "--metadata", foo, "--metadata", bar, srcpath, dstpath)
+	result := icmd.RunCmd(cmd)
+	result.Assert(t, icmd.Success)
+
+	// assert S3
+	assert.Assert(t, ensureS3Object(s3client, bucket, fmt.Sprintf("%s_cp", filename), content, ensureArbitraryMetadata(srcmetadata)))
+}
+
 func TestCopySingleFileToS3WithAdjacentSlashes(t *testing.T) {
 	t.Parallel()
 
@@ -997,7 +1030,6 @@ func TestCopySingleFileToS3WithAdjacentSlashes(t *testing.T) {
 		})
 
 	}
-
 }
 
 // --json cp dir/file s3://bucket
@@ -1137,7 +1169,6 @@ func TestCopyDirBackslashedToS3(t *testing.T) {
 	// assert s3
 	assert.Assert(t, ensureS3Object(s3client, bucket, "readme.md", `¯\_(ツ)_/¯`))
 	assert.Assert(t, ensureS3Object(s3client, bucket, "t\\est/filetest.txt", "try reaching me on windows :-)"))
-
 }
 
 // cp --storage-class=GLACIER file s3://bucket/
@@ -2282,7 +2313,6 @@ func TestCopyMultipleS3ObjectsToS3WithPrefixWithoutSlash(t *testing.T) {
 	for filename, content := range filesToContent {
 		assert.Assert(t, ensureS3Object(s3client, bucket, filename, content))
 	}
-
 }
 
 // --json cp s3://bucket/* s3://bucket/prefix/
@@ -2621,9 +2651,9 @@ func TestCopyS3ToLocal_Issue70(t *testing.T) {
 	expectedFiles := []fs.PathOp{
 		fs.WithDir(
 			".local",
-			fs.WithMode(0755),
-			fs.WithDir("folder1", fs.WithMode(0755), fs.WithFile("file1.txt", "this is a test file 1")),
-			fs.WithDir("folder2", fs.WithMode(0755), fs.WithFile("file2.txt", "this is a test file 2")),
+			fs.WithMode(0o755),
+			fs.WithDir("folder1", fs.WithMode(0o755), fs.WithFile("file1.txt", "this is a test file 1")),
+			fs.WithDir("folder2", fs.WithMode(0o755), fs.WithFile("file2.txt", "this is a test file 2")),
 		),
 	}
 
@@ -2894,7 +2924,7 @@ func TestCopyLocalFileToS3WithFilePermissions(t *testing.T) {
 		content  = "this is the content"
 	)
 
-	fileModes := []os.FileMode{0400, 0440, 0444, 0600, 0640, 0644, 0700, 0750, 0755}
+	fileModes := []os.FileMode{0o400, 0o440, 0o444, 0o600, 0o640, 0o644, 0o700, 0o750, 0o755}
 
 	for _, fileMode := range fileModes {
 
@@ -3572,7 +3602,6 @@ func TestCopyS3ObjectstoLocalWithRawFlag(t *testing.T) {
 
 			for _, filename := range tc.src {
 				putFile(t, s3client, bucket, filename, fileContent)
-
 			}
 
 			cmd := s5cmd("cp", "s3://"+bucket+"/"+tc.wantedFile, ".")
@@ -3978,7 +4007,7 @@ func TestCopyLocalDirectoryToS3WithExcludeFilter(t *testing.T) {
 				assert.Assert(t, ensureS3Object(s3client, bucket, key, content))
 			}
 
-			//assert objects should not be in S3.
+			// assert objects should not be in S3.
 			for key, content := range nonExpectedS3Content {
 				err := ensureS3Object(s3client, bucket, key, content)
 				assertError(t, err, errS3NoSuchKey)
@@ -4049,7 +4078,7 @@ func TestCopyLocalDirectoryToS3WithExcludeFilters(t *testing.T) {
 		assert.Assert(t, ensureS3Object(s3client, bucket, key, content))
 	}
 
-	//assert objects should not be in S3.
+	// assert objects should not be in S3.
 	for key, content := range nonExpectedS3Content {
 		err := ensureS3Object(s3client, bucket, key, content)
 		assertError(t, err, errS3NoSuchKey)
@@ -4276,7 +4305,7 @@ func TestVersionedDownload(t *testing.T) {
 
 	const filename = "testfile.txt"
 
-	var contents = []string{
+	contents := []string{
 		"This is first content",
 		"Second content it is, and it is a bit longer!!!",
 	}
@@ -4398,7 +4427,7 @@ func TestCountingWriter(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	// assert the downloaded file has the same content with the remote object
-	expected := fs.Expected(t, fs.WithFile(filename, content, fs.WithMode(0644)))
+	expected := fs.Expected(t, fs.WithFile(filename, content, fs.WithMode(0o644)))
 	assert.Assert(t, fs.Equal(cmd.Dir, expected))
 }
 
